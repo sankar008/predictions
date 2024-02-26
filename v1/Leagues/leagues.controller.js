@@ -82,8 +82,7 @@ const getFixtures = async (schedule_date) => {
 
 const getLiveLeagues = async (req, res) => {
   try {
-    const countryArray = ['Australia', 'Argentina', 'Angola', 'Belgium', 'Brazil', 'England', 'Israel', 'Italy', 'India', 'Mexico', 'Nigeria', 'World'];
-    //const countryArray = ['England', 'Mexico'];
+    const countryArray = ['Australia', 'Austria', 'Argentina', 'Angola', 'Belgium', 'Brazil', 'Bulgaria', 'Canada', 'China', 'Croatia', 'Cyprus', 'Czech Republic', 'Denmark', 'England', 'Estonia', 'Europe', 'France', 'Germany', 'Greece', 'Israel', 'Italy', 'India', 'Mexico', 'Malta', 'Nigeria', 'Netherlands', 'Scotland', 'Serbia', 'South America', 'Spain', 'Switzerland', 'Turkey', 'Portugal', 'Romania', 'Russia', 'Ukraine', 'United Kingdom', 'USA', 'World'];
 
     const scheduleDate = req.params.schedule_date;
     if (scheduleDate) {

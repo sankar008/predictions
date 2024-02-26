@@ -5,6 +5,7 @@ const predictionModel = require('./../vote/predictions.service');
 const { auth } = require("../../auth/jwt_token");
 const mongoose = require('mongoose');
 const { getApiResponse } = require('./../../Settings/settings');
+const { promises } = require("nodemailer/lib/xoauth2");
 
 const createVote = async (req, res) => {
     const body = req.body;
@@ -122,7 +123,135 @@ const getFixtureDetails = async (req, res) => {
     }
 }
 
+const getMyvoteDetails = async (req, res) => {
+    try{
+        const authData = await auth(req.token_code);
+        const loginId = new mongoose.Types.ObjectId(authData.result._id);
+
+
+
+        const myData = await voteModel.aggregate([
+            {
+                $lookup : {
+                    from: "results",
+                    localField: "fixtureId",
+                    foreignField: "fixture.id",
+                    as: "myMatch"
+                }
+            },
+            {
+                $match: {userId: loginId}
+            },
+            {
+                $unwind: "$myMatch"
+            },
+            {
+                $project: {
+                    '_id': 0,
+                    'fixtureId': 1,
+                    'userId': 1,
+                    'myMatch.fixture.date': 1,
+                    'myMatch.fixture.timestamp': 1,
+                    'myMatch.teams.home.name': 1 ,
+                    'myMatch.teams.home.logo': 1,
+                    'myMatch.teams.away.name': 1 ,
+                    'myMatch.teams.away.logo': 1     
+                }
+            }
+        ]);
+
+
+        const myMatchData = await Promise.all(myData.map(async (items)=>{
+            let totalVote    = await voteModel.find({fixtureId: items.fixtureId}).count();
+            let totalHomeWin = await voteModel.find({fixtureId: items.fixtureId, 'vottingFor.home': 1}).count();        
+            let totalAwayWin = await voteModel.find({fixtureId: items.fixtureId, 'vottingFor.away': 1}).count();
+            let totalDrawWin = await voteModel.find({fixtureId: items.fixtureId, 'vottingFor.home': 0, 'vottingFor.away': 0}).count();
+            items.totalVote  = totalVote;
+            items.voteInPercentage = {
+                home: (totalHomeWin/totalVote)*100 + '%',
+                away: (totalAwayWin/totalVote)*100 + '%',
+                draw: (totalDrawWin/totalVote)*100 + '%',
+            };
+            return items;
+        })) 
+
+        return res.status(200).json({
+            success: true,
+            data: myMatchData
+        })
+
+    } catch (e) {
+        const error = e.errors;
+        return res.status(400).json({
+            success: false,
+            message: error
+        })
+    }
+}
+
+const getAllvoteDetails = async (req, res) => {
+    try{
+
+        const vottingData = await voteModel.aggregate([
+            {
+                $group: {
+                    "_id": "$fixtureId",
+                }
+            }
+        ])
+
+
+
+        const myMatchData = await Promise.all(vottingData.map(async (items)=>{
+
+            const matchQuery = {"fixture.id": items._id}        
+            const fixtureDetails = await result.findOne(matchQuery);            
+            let totalVote    = await voteModel.find({fixtureId: items._id}).count();
+            let totalHomeWin = await voteModel.find({fixtureId: items._id, 'vottingFor.home': 1}).count();        
+            let totalAwayWin = await voteModel.find({fixtureId: items._id, 'vottingFor.away': 1}).count();
+            let totalDrawWin = await voteModel.find({fixtureId: items._id, 'vottingFor.home': 0, 'vottingFor.away': 0}).count();
+            items.totalVote  = totalVote;
+            items.match      = {
+                fixture: {
+                    date: fixtureDetails.fixture.date,
+                    timestamp: fixtureDetails.fixture.timestamp
+                },
+                temas: {
+                    home: {
+                        name: fixtureDetails.teams.home.name,
+                        logo: fixtureDetails.teams.home.logo,
+                    },
+                    away: {
+                        name: fixtureDetails.teams.away.name,
+                        logo: fixtureDetails.teams.away.logo,
+                    }
+                },
+            },
+            items.voteInPercentage = {
+                home: (totalHomeWin/totalVote)*100 + '%',
+                away: (totalAwayWin/totalVote)*100 + '%',
+                draw: (totalDrawWin/totalVote)*100 + '%',
+            };
+            return items;
+        })) 
+
+        return res.status(200).json({
+            success: true,
+            data: myMatchData
+        })
+
+    } catch (e) {
+        const error = e.errors;
+        return res.status(400).json({
+            success: false,
+            message: error
+        })
+    }
+}
+
 module.exports = {
     createVote: createVote,
-    getFixtureDetails: getFixtureDetails
+    getFixtureDetails: getFixtureDetails,
+    getMyvoteDetails: getMyvoteDetails,
+    getAllvoteDetails: getAllvoteDetails
 }
