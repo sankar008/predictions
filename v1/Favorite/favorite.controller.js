@@ -19,7 +19,7 @@ const addFavorite = async (req, res) => {
             const favData = await favModel.save();
             return res.status(200).json({
                 success: true,
-                message: "Add favorite successfully!!"
+                message: "Match selected as Favorite!!"
             })
         } else {
             const blog = await favoriteModule.findOneAndDelete({
@@ -28,7 +28,7 @@ const addFavorite = async (req, res) => {
             })
             return res.status(200).json({
                 success: true,
-                message: "Unfavorite successfully!!"
+                message: "Match unmarked from Favorite!!"
             })
         }
 
@@ -57,6 +57,9 @@ const getFavorite = async (req, res) => {
                 $match: {
                     userId: new mongoose.Types.ObjectId(authData.result._id)
                 }
+            },
+            {
+                $sort:{"_id": -1}
             },
             {
                 $project: {

@@ -1,5 +1,7 @@
 const { initializeApp, applicationDefault } = require("firebase-admin/app");
 const { getMessaging } = require("firebase-admin/messaging");
+const favoriteModule = require("./../Favorite/favorite.service");
+
 require("dotenv").config();
 const FCM = require('fcm-node');
 initializeApp({
@@ -7,9 +9,41 @@ initializeApp({
     projectId: "predictions-49181",
 });
 
-const sendNotification = (req, res) => {
+const sendNotification = async (req, res) => {
     try {    
-      //const token = req.body.token;
+      const authData = await auth(req.token_code);
+        const favorite = await favoriteModule.aggregate([
+            {
+                $lookup: {
+                    from: "results",
+                    localField: "fixtureId",
+                    foreignField: "fixture.id",
+                    as: "match"
+                }
+            },
+            {
+                $match: {
+                    userId: new mongoose.Types.ObjectId(authData.result._id)
+                }
+            },
+            {
+                $sort:{"_id": -1}
+            },
+            {
+                $project: {
+                    "match.league.name": 1,
+                    "match.fixture.timestamp": 1,
+                    "match.fixture.id": 1,
+                    "match.teams": 1,
+                    "match.goals": 1,
+                    "match.score": 1,
+                }
+            }
+        ])
+
+        console.log(favorite);
+        return false;
+
       const message = {
         notification: {
           title: "Test Notification",
@@ -36,7 +70,6 @@ const sendNotification = (req, res) => {
     }
 };
 
-sendNotification();
 
 module.exports = {
     sendNotification: sendNotification

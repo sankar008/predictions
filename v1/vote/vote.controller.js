@@ -77,7 +77,8 @@ const getFixtureDetails = async (req, res) => {
         
         const resultObj = {
             total_vote: totalVote,
-            isvoted: isVoted.vottingFor,
+            isvoted: isVoted?.vottingFor,
+            session: fixtureDetails.league.season,
             home: {
                 logo: fixtureDetails.teams.home.logo,
                 teamName: fixtureDetails.teams.home.name,
@@ -93,9 +94,9 @@ const getFixtureDetails = async (req, res) => {
                 elapsed: fixtureDetails.fixture.status.elapsed,
             },
             probability: {
-                home: (totalHomeWin/totalVote)*100 + '%',
-                away: (totalAwayWin/totalVote)*100 + '%',
-                draw: (totalDrawWin/totalVote)*100 + '%',
+                home: ((totalHomeWin/totalVote)*100).toFixed(2) + '%',
+                away: ((totalAwayWin/totalVote)*100).toFixed(2) + '%',
+                draw: ((totalDrawWin/totalVote)*100).toFixed(2) + '%',
             },
             odds:{
                 "home":1.07,
@@ -103,6 +104,7 @@ const getFixtureDetails = async (req, res) => {
                 "draw":2,
             },
             predictions: predictionData.predictions,
+            teams: predictionData.teams,
             h2h: predictionData.h2h,
             comparison: predictionData.comparison,
         }
@@ -168,9 +170,9 @@ const getMyvoteDetails = async (req, res) => {
             let totalDrawWin = await voteModel.find({fixtureId: items.fixtureId, 'vottingFor.home': 0, 'vottingFor.away': 0}).count();
             items.totalVote  = totalVote;
             items.voteInPercentage = {
-                home: (totalHomeWin/totalVote)*100 + '%',
-                away: (totalAwayWin/totalVote)*100 + '%',
-                draw: (totalDrawWin/totalVote)*100 + '%',
+                home: ((totalHomeWin/totalVote)*100).toFixed(2) + '%',
+                away: ((totalAwayWin/totalVote)*100).toFixed(2) + '%',
+                draw: ((totalDrawWin/totalVote)*100).toFixed(2) + '%',
             };
             return items;
         })) 
@@ -196,48 +198,63 @@ const getAllvoteDetails = async (req, res) => {
             {
                 $group: {
                     "_id": "$fixtureId",
+                    count: { $sum: 1 }
                 }
-            }
+            },
+            {
+                $sort:{"count": -1, "_id": 1}
+            },
         ])
-
-
 
         const myMatchData = await Promise.all(vottingData.map(async (items)=>{
 
-            const matchQuery = {"fixture.id": items._id}        
-            const fixtureDetails = await result.findOne(matchQuery);            
-            let totalVote    = await voteModel.find({fixtureId: items._id}).count();
-            let totalHomeWin = await voteModel.find({fixtureId: items._id, 'vottingFor.home': 1}).count();        
-            let totalAwayWin = await voteModel.find({fixtureId: items._id, 'vottingFor.away': 1}).count();
-            let totalDrawWin = await voteModel.find({fixtureId: items._id, 'vottingFor.home': 0, 'vottingFor.away': 0}).count();
-            items.totalVote  = totalVote;
-            items.match      = {
-                fixture: {
-                    date: fixtureDetails.fixture.date,
-                    timestamp: fixtureDetails.fixture.timestamp
-                },
-                temas: {
-                    home: {
-                        name: fixtureDetails.teams.home.name,
-                        logo: fixtureDetails.teams.home.logo,
+            const matchQuery = {"fixture.id": items._id, "fixture.status.short": { $nin: ['FT', 'PST', 'CANC'] }}  
+
+            const fixtureDetails = await result.findOne(matchQuery); 
+                      
+
+            if(fixtureDetails != null){
+                let totalVote    = await voteModel.find({fixtureId: items._id}).count();
+                let totalHomeWin = await voteModel.find({fixtureId: items._id, 'vottingFor.home': 1}).count();        
+                let totalAwayWin = await voteModel.find({fixtureId: items._id, 'vottingFor.away': 1}).count();
+                let totalDrawWin = await voteModel.find({fixtureId: items._id, 'vottingFor.home': 0, 'vottingFor.away': 0}).count();
+                items.totalVote  = totalVote;
+                items.match      = {
+                    league: {
+                        name: fixtureDetails.league.name
                     },
-                    away: {
-                        name: fixtureDetails.teams.away.name,
-                        logo: fixtureDetails.teams.away.logo,
-                    }
+                    fixture: {
+                        id: fixtureDetails.fixture.id,
+                        date: fixtureDetails.fixture.date,
+                        timestamp: fixtureDetails.fixture.timestamp,
+                        status: fixtureDetails.fixture.status.short,
+                    },
+                    temas: {
+                        home: {
+                            name: fixtureDetails.teams.home.name,
+                            logo: fixtureDetails.teams.home.logo,
+                        },
+                        away: {
+                            name: fixtureDetails.teams.away.name,
+                            logo: fixtureDetails.teams.away.logo,
+                        }
+                    },
                 },
-            },
-            items.voteInPercentage = {
-                home: (totalHomeWin/totalVote)*100 + '%',
-                away: (totalAwayWin/totalVote)*100 + '%',
-                draw: (totalDrawWin/totalVote)*100 + '%',
-            };
-            return items;
+                items.voteInPercentage = {
+                    home: ((totalHomeWin/totalVote)*100).toFixed(2) + '%',
+                    away: ((totalAwayWin/totalVote)*100).toFixed(2) + '%',
+                    draw: ((totalDrawWin/totalVote)*100).toFixed(2) + '%',
+                };
+
+                return items;
+            }          
+          
+           
         })) 
 
         return res.status(200).json({
             success: true,
-            data: myMatchData
+            data: myMatchData.filter(function(x) { return x != null })
         })
 
     } catch (e) {

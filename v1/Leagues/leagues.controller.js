@@ -82,7 +82,7 @@ const getFixtures = async (schedule_date) => {
 
 const getLiveLeagues = async (req, res) => {
   try {
-    const countryArray = ['Australia', 'Austria', 'Argentina', 'Angola', 'Belgium', 'Brazil', 'Bulgaria', 'Canada', 'China', 'Croatia', 'Cyprus', 'Czech Republic', 'Denmark', 'England', 'Estonia', 'Europe', 'France', 'Germany', 'Greece', 'Israel', 'Italy', 'India', 'Mexico', 'Malta', 'Nigeria', 'Netherlands', 'Scotland', 'Serbia', 'South America', 'Spain', 'Switzerland', 'Turkey', 'Portugal', 'Romania', 'Russia', 'Ukraine', 'United Kingdom', 'USA', 'World'];
+    const countryArray = ['Australia', 'Austria', 'Argentina', 'Angola', 'Belgium', 'Brazil', 'Bulgaria', 'Canada', 'China', 'Croatia', 'Cyprus', 'Czech Republic', 'Denmark', 'England', 'Estonia', 'Europe', 'France', 'Germany', 'Greece', 'Israel', 'Italy', 'India', 'Mexico', 'Malta', 'Nigeria', 'Netherlands', 'Scotland', 'Serbia', 'South America', 'Spain', 'Switzerland', 'Turkey', 'Portugal', 'Romania', 'Russia', 'Ukraine', 'United Kingdom', 'USA'];
 
     const scheduleDate = req.params.schedule_date;
     if (scheduleDate) {
@@ -90,7 +90,7 @@ const getLiveLeagues = async (req, res) => {
       const nextDate = moment(scheduleDate).add(1, 'days').format("YYYY-MM-DD");
       var matchQuery = {
         'league.country': { $in: countryArray },
-        "fixture.date": { $gte: todayDate, $lte: nextDate }
+        "fixture.date": { $gte: todayDate, $lte: nextDate },
       }
 
       const isExists = await resultModule.find({"fixture.date": { $gte: todayDate, $lte: nextDate }}).count();
@@ -107,13 +107,9 @@ const getLiveLeagues = async (req, res) => {
       var matchQuery = {
         'league.country': { $in: countryArray },
         "fixture.date": { $gte: todayDate, $lte: nextDate },
-        "fixture.status.short": {$nin: ['FT', 'PST']}
+        "fixture.status.short": {$nin: ['FT', 'PST', 'NS', 'CANC', 'TBD']}
       }
-    }
-
-
-
-  
+    }  
 
     const liveRecords = await resultModule.aggregate([
       { $match: matchQuery },
@@ -128,6 +124,8 @@ const getLiveLeagues = async (req, res) => {
             "$push": {
               id: "$fixture.id",
               time: "$fixture.timestamp",
+              timeZone: "$fixture.timezone",
+              date: "$fixture.date",
               result: {$cond: [
                 { "$eq": [ "$teams.home.winner", true ] }, 
                 'Home Win',
@@ -138,6 +136,7 @@ const getLiveLeagues = async (req, res) => {
                 ]}
              ]},
               status: "$fixture.status.long",
+              status_short: "$fixture.status.short",
               home: {
                 teamName: "$teams.home.name",
                 logo: "$teams.home.logo"
@@ -151,6 +150,9 @@ const getLiveLeagues = async (req, res) => {
         }
       },
       {
+        $sort:{"_id.country": 1, 'matches.id': 1}
+      },
+      {
         $project: {
           _id: 0,
           matches: 1,
@@ -159,7 +161,7 @@ const getLiveLeagues = async (req, res) => {
           flag: "$_id.flag",
         }
       }
-    ]).sort('countryName');
+    ]);
 
 
     return res.status(200).json({
