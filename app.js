@@ -14,6 +14,7 @@ const leaguesRouter = require('./v1/Leagues/leagues.route');
 const favRouter = require('./v1/Favorite/favorite.route');
 const contactRouter = require('./v1/contactus/contact.route');
 const voteRouter = require('./v1/vote/vote.route');
+const leagueFavRouter  = require('./v1/League_Fav/favorite.route');
 const multer = require("multer");
 const path = require('path');
 
@@ -40,6 +41,7 @@ const imageUpload = multer({
 
 app.use("/v1/user", imageUpload.single('image'), userRouter);
 app.use("/v1/leagues", leaguesRouter);
+app.use("/v1/leagues-fav", leagueFavRouter);
 app.use("/v1/fav", favRouter);
 app.use("/v1/contact", contactRouter);
 app.use("/v1/vote", voteRouter);
