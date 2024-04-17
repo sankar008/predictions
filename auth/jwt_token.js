@@ -30,10 +30,10 @@ module.exports = {
         }
     },
 
-    auth: async (token) => {
+    auth: async (token, res) => {
         let tokencode = decode(token).auth;
-        let isValid = await User.findOne({emaild: tokencode.result.emailId})
-        if(isValid){
+        let isValid = await User.find({emailId: tokencode.result.emailId}).count();
+        if(isValid > 0){
              return tokencode;
         }else{
             res.status(400).json({
