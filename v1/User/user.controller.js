@@ -58,7 +58,7 @@ const createUser = async (req, res) => {
 
             transporter.sendMail(mailOptions, function (error, info) {
                 return res.status(200).json({
-                    success: 1,
+                    success: true,
                     data: { emailId: body.emailId },
                     message: "Registration successfully!"
                 })
@@ -164,14 +164,14 @@ const emailVerification = async (req, res) => {
             expiresIn: "12d"
         });
         return res.status(200).json({
-            success: 1,
+            success: true,
             token: jsontoken,
             message: "OTP verified!"
         })
 
     } else {
         return res.status(400).json({
-            success: 0,
+            success: false,
             message: "OTP doest not match!"
         })
     }
@@ -180,8 +180,14 @@ const emailVerification = async (req, res) => {
 const forgotPassword = async (req, res) => {
     const body = req.body;
 
-    const checkuser = await userModel.find({ emailId: body.emailId }).count();
+    const checkuser = await userModel.findOne({ emailId: body.emailId});
     if (checkuser) {
+        if(checkuser.type == 'google' || checkuser.type == 'apple'){
+            return res.status(400).json({
+                success: false,
+                message: "Email id does not registered as a email account"
+            })
+        }
 
         body.otp = Math.random().toString().substr(2, 6);
         to = body.emailId
@@ -209,14 +215,14 @@ const forgotPassword = async (req, res) => {
 
         transporter.sendMail(mailOptions, function (error, info) {
             return res.status(200).json({
-                success: 1,
+                success: true,
                 message: "OTP sent to registered email id!"
             })
         });
 
     } else {
         return res.status(400).json({
-            success: 0,
+            success: false,
             message: "Email id does not match"
         })
     }
@@ -235,19 +241,19 @@ const resetPassword = async (req, res) => {
 
         if (p.modifiedCount == 1) {
             return res.status(200).json({
-                success: 1,
+                success: true,
                 message: "Password changed successfully"
             })
         } else {
             return res.status(400).json({
-                success: 0,
+                success: false,
                 message: "Error!! Please try again"
             })
         }
 
     } else {
         return res.status(400).json({
-            success: 0,
+            success: false,
             message: "Invaid otp. Please resend."
         })
     }
@@ -257,9 +263,9 @@ const login = async (req, res) => {
     const body = req.body;
     try {
         const student = await userModel.findOne({ emailId: body.emailId }, { password: 1, _id: 1, emailId: 1, name: 1, isVerified:1 });
-        if(student.isVerified == 0){
+        if(student?.isVerified == 0){
             return res.status(400).json({
-                success: 0,
+                success: false,
                 message: "Email id yet not verified."
             })
         }
@@ -272,26 +278,26 @@ const login = async (req, res) => {
                     expiresIn: "12d"
                 });
                 return res.status(200).json({
-                    success: 1,
+                    success: true,
                     data: { emailId: student.emailId },
                     token: jsontoken
                 })
             } else {
                 return res.status(400).json({
-                    success: 0,
+                    success: false,
                     message: "Password doest not match!"
                 })
             }
 
         } else {
             return res.status(400).json({
-                success: 0,
+                success: false,
                 message: "Registered Email Id is require."
             })
         }
     } catch (e) {
         return res.status(400).json({
-            success: 0,
+            success: false,
             message: e
         })
     }
@@ -324,7 +330,7 @@ const resetOtp = async (req, res) => {
 
         transporter.sendMail(mailOptions, function (error, info) {
             return res.status(200).json({
-                success: 1,
+                success: true,
                 message: "OTP Send successfully!"
             })
         });
@@ -397,7 +403,7 @@ const deleteUser = async (req, res) => {
         const authData = await auth(req.token_code);
         const user = await userModel.findOneAndDelete({_id:new mongoose.Types.ObjectId(authData.result._id)})
         return user?res.status(200).json({
-            success: 1,
+            success: true,
             msg: "Data has been deleted successfully."
         }):res.status(200).json({
             success: 0,

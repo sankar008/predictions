@@ -3,8 +3,11 @@ const axios = require('axios');
 const leaguesModule = require('./leagues.service');
 const resultModule = require('./result.service');
 const statisticsModule = require("./statistics.service");
+const leaugeFav = require("./../League_Fav/favorite.service");
+const { auth } = require("../../auth/jwt_token");
+const mongoose = require('mongoose');
+
 var moment = require('moment');
-const { promises } = require('nodemailer/lib/xoauth2');
 
 const getLeagues = async (req, res) => {
   try {
@@ -81,7 +84,7 @@ const getFixtures = async (schedule_date) => {
 }
 
 const getLiveLeagues = async (req, res) => {
-  try {
+ try {
     const countryArray = ['Australia', 'Austria', 'Argentina', 'Angola', 'Belgium', 'Brazil', 'Bulgaria', 'Canada', 'China', 'Croatia', 'Cyprus', 'Czech Republic', 'Denmark', 'England', 'Estonia', 'Europe', 'France', 'Germany', 'Greece', 'Israel', 'Italy', 'India', 'Mexico', 'Malta', 'Nigeria', 'Netherlands', 'Scotland', 'Serbia', 'South America', 'Spain', 'Switzerland', 'Turkey', 'Portugal', 'Romania', 'Russia', 'Ukraine', 'United Kingdom', 'USA'];
 
     const scheduleDate = req.params.schedule_date;
@@ -112,13 +115,14 @@ const getLiveLeagues = async (req, res) => {
     }  
 
     const liveRecords = await resultModule.aggregate([
-      { $match: matchQuery },
+      { $match: matchQuery },    
       {
         $group: {
           "_id": {
             "country": "$league.country",
             "league": "$league.name",
             "flag": "$league.flag",
+            "leagueId": "$league.id",
           },
           "matches": {
             "$push": {
@@ -159,14 +163,22 @@ const getLiveLeagues = async (req, res) => {
           countryName: "$_id.country",
           leagueName: "$_id.league",
           flag: "$_id.flag",
+          leagueId: "$_id.leagueId"
         }
       }
     ]);
 
+    const liveData = await Promise.all(liveRecords.map( async (items)=>{
+      const authData = await auth(req.token_code);
+      const isFav = await leaugeFav.findOne({userId: new mongoose.Types.ObjectId(authData.result._id), leagueId: items.leagueId})
+      items.isFavorite = isFav?true:false;
+      return items;
+    }));
+
 
     return res.status(200).json({
       success: true,
-      data: liveRecords,
+      data: liveData,
     })
 
 

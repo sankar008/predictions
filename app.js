@@ -15,6 +15,7 @@ const favRouter = require('./v1/Favorite/favorite.route');
 const contactRouter = require('./v1/contactus/contact.route');
 const voteRouter = require('./v1/vote/vote.route');
 const leagueFavRouter  = require('./v1/League_Fav/favorite.route');
+const subscriptionRouter = require('./v1/Subscription/subscription.router');
 const multer = require("multer");
 const path = require('path');
 
@@ -45,6 +46,7 @@ app.use("/v1/leagues-fav", leagueFavRouter);
 app.use("/v1/fav", favRouter);
 app.use("/v1/contact", contactRouter);
 app.use("/v1/vote", voteRouter);
+app.use("/v1/subscription", subscriptionRouter);
 
 httpServer.listen(port, ()=>{
     console.log(`Server runging with port ${port}`);

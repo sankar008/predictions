@@ -1,5 +1,5 @@
 const { verify, decode, sign } = require("jsonwebtoken");
-
+const User = require("./../v1/User/user.service");
 module.exports = {
     checkToken: (req, res, next) =>{
         let token = req.get("authorization");     
@@ -30,8 +30,16 @@ module.exports = {
         }
     },
 
-    auth: (token) => {
+    auth: async (token) => {
         let tokencode = decode(token).auth;
-       return tokencode;
+        let isValid = await User.findOne({emaild: tokencode.result.emailId})
+        if(isValid){
+             return tokencode;
+        }else{
+            res.status(400).json({
+                success: false,
+                message: 'invalid token'
+            });
+        }
     }
 }
