@@ -119,8 +119,8 @@ const getAllLeaguesList = async (req, res) => {
             leg.isFavorite = isFav ? true : false;
             return leg;
           })
-        );
-        return leaguesData;
+        );        
+        return items;
       })
     );
 
@@ -232,64 +232,71 @@ const getLiveLeagues = async (req, res) => {
       };
     }
 
-    const liveRecords = await resultModule.aggregate([
-      { $match: matchQuery },
-      {
-        $group: {
-          _id: {
-            country: '$league.country',
-            league: '$league.name',
-            flag: '$league.flag',
-            leagueId: '$league.id'
-          },
-          matches: {
-            $push: {
-              id: '$fixture.id',
-              time: '$fixture.timestamp',
-              timeZone: '$fixture.timezone',
-              date: '$fixture.date',
-              result: { $cond: [{ $eq: ['$teams.home.winner', true] }, 'Home Win', { $cond: [{ $eq: ['$teams.away.winner', true] }, 'Away Win', null] }] },
-              status: '$fixture.status.long',
-              status_short: '$fixture.status.short',
-              home: {
-                teamName: '$teams.home.name',
-                logo: '$teams.home.logo'
+    const authData = await auth(req.token_code);
+    const favLeagues = await leaugeFav.find({ userId: new mongoose.Types.ObjectId(authData.result._id)});
+    const objectData = await Promise.all(
+      favLeagues.flatMap(async (favItems) => {
+        const conditions = { ...matchQuery, ...{ 'league.id': favItems.leagueId } };
+
+        const liveRecords = await resultModule.aggregate([
+          { $match: conditions },
+          {
+            $group: {
+              _id: {
+                country: '$league.country',
+                league: '$league.name',
+                flag: '$league.flag',
+                leagueId: '$league.id'
               },
-              away: {
-                teamName: '$teams.away.name',
-                logo: '$teams.away.logo'
+              matches: {
+                $push: {
+                  id: '$fixture.id',
+                  time: '$fixture.timestamp',
+                  timeZone: '$fixture.timezone',
+                  date: '$fixture.date',
+                  result: { $cond: [{ $eq: ['$teams.home.winner', true] }, 'Home Win', { $cond: [{ $eq: ['$teams.away.winner', true] }, 'Away Win', null] }] },
+                  status: '$fixture.status.long',
+                  status_short: '$fixture.status.short',
+                  home: {
+                    teamName: '$teams.home.name',
+                    logo: '$teams.home.logo'
+                  },
+                  away: {
+                    teamName: '$teams.away.name',
+                    logo: '$teams.away.logo'
+                  }
+                }
               }
             }
+          },
+          {
+            $sort: { '_id.country': 1, 'matches.id': 1 }
+          },
+          {
+            $project: {
+              _id: 0,
+              matches: 1,
+              countryName: '$_id.country',
+              leagueName: '$_id.league',
+              flag: '$_id.flag',
+              leagueId: '$_id.leagueId',
+              isFavorite: true
+            }
           }
-        }
-      },
-      {
-        $sort: { '_id.country': 1, 'matches.id': 1 }
-      },
-      {
-        $project: {
-          _id: 0,
-          matches: 1,
-          countryName: '$_id.country',
-          leagueName: '$_id.league',
-          flag: '$_id.flag',
-          leagueId: '$_id.leagueId'
-        }
-      }
-    ]);
+        ]);
 
-    const liveData = await Promise.all(
-      liveRecords.map(async (items) => {
-        const authData = await auth(req.token_code);
-        const isFav = await leaugeFav.findOne({ userId: new mongoose.Types.ObjectId(authData.result._id), leagueId: items.leagueId });
-        items.isFavorite = isFav ? true : false;
-        return items;
+        if (liveRecords.length > 0) {
+          var result = { ...liveRecords[0], ...{ isFavorite: true } };
+        }
+        return result;
       })
     );
 
     return res.status(200).json({
       success: true,
-      data: liveData
+      data: objectData.filter(function (x) {
+        return x != null;
+      })
     });
   } catch (e) {
     const error = e.errors;
